@@ -3,9 +3,5 @@ __pycache__/*
 *.pyc
 
 output/*
-data/market_data/*
-data/trade_activities*/*
-data_summary/*.csv
-data_summary/*.xlsx
 *.ods
 !.gitkeep
