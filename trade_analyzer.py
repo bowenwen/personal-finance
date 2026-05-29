@@ -53,6 +53,9 @@ class TradeAnalyzer:
         # process ticker
         self.history_df['Ticker'] = self.history_df['Ticker'].map(
             lambda x: x.lstrip('').rstrip('.TO'))
+        # use only closing and last entry per Ticker and Date
+        self.history_df = self.history_df.groupby(
+            ['Ticker', 'Date']).last().reset_index()
         # read activities and ticker category
         activities_file = os.path.join(
             self.trades_directory,
@@ -89,8 +92,8 @@ class TradeAnalyzer:
         """Analyze allocation of asset"""
         # asset over time
         assetovertime_df = self.activities_df[['Account', 'Date', 'Ticker', 'Quantity']]\
-            .merge(self.ticker_cat_df, on='Ticker')\
-            .merge(self.history_df, on=['Ticker', 'Date'])
+            .merge(self.ticker_cat_df, on='Ticker', validate='many_to_one')\
+            .merge(self.history_df, on=['Ticker', 'Date'], validate='many_to_one')
         # asset cumulative quantity over time by account
         assetacctime_df = pd.pivot_table(
             assetovertime_df,
@@ -154,13 +157,15 @@ class TradeAnalyzer:
             assetcattime_df,
             values='Market_Value',
             index=['Date', 'Category'],
-            aggfunc=np.sum).fillna(0)\
-            .groupby(level=0)\
-            .apply(lambda x: 100 * x / float(x.sum()))\
+            aggfunc=np.sum).astype(float)\
             .reset_index()
+        asset_pct_df = asset_pct_df.merge(asset_pct_df.groupby('Date').sum(['Date', 'Market_Value']).reset_index(
+        ).rename(columns={'Market_Value': 'Day_Total'}), on='Date')
+        asset_pct_df['Market_Day_Pct'] = (asset_pct_df['Market_Value'] /
+                                          asset_pct_df['Day_Total'] * 100).fillna(0)
         asset_pct_pivot_df = pd.pivot_table(
             asset_pct_df,
-            values='Market_Value',
+            values='Market_Day_Pct',
             index='Date',
             columns='Category',
             aggfunc=np.sum)\
